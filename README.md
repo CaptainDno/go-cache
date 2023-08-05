@@ -13,6 +13,12 @@ cache can be saved to and loaded from a file (using `c.Items()` to retrieve the
 items map to serialize, and `NewFrom()` to create a cache from a deserialized
 one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats.)
 
+### Differences from original
+
++ Removed check for item existence in DeleteExpired function (we know that item exists already)
++ OnEvicted function now accepts array of evicted key/value pairs
++ Added possibility to reset expired item values to some provided default if item matches provided condition (see [DeleteOrReplaceExpired](https://github.com/CaptainDno/go-cache/blob/46f407853014144407b6c2ec7ccc76bf67958d93/cache.go#L968))
+
 ### Installation
 
 `go get github.com/patrickmn/go-cache`

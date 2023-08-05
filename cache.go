@@ -41,7 +41,7 @@ type cache struct {
 	defaultExpiration time.Duration
 	items             map[string]Item
 	mu                sync.RWMutex
-	onEvicted         func(string, interface{})
+	onEvicted         func([]keyAndValue)
 	janitor           *janitor
 }
 
@@ -907,8 +907,27 @@ func (c *cache) Delete(k string) {
 	v, evicted := c.delete(k)
 	c.mu.Unlock()
 	if evicted {
-		c.onEvicted(k, v)
+		evictedItems := [1]keyAndValue{
+			{
+				key:   k,
+				value: v,
+			},
+		}
+		c.onEvicted(evictedItems[:])
 	}
+}
+
+func (c *cache) DeleteBulk(keys []string) {
+	var evictedItems []keyAndValue
+	c.mu.Lock()
+	for _, k := range keys {
+		v, evicted := c.delete(k)
+		if evicted {
+			evictedItems = append(evictedItems, keyAndValue{key: k, value: v})
+		}
+	}
+	c.mu.Unlock()
+	c.onEvicted(evictedItems)
 }
 
 func (c *cache) delete(k string) (interface{}, bool) {
@@ -935,22 +954,44 @@ func (c *cache) DeleteExpired() {
 	for k, v := range c.items {
 		// "Inlining" of expired
 		if v.Expiration > 0 && now > v.Expiration {
-			ov, evicted := c.delete(k)
-			if evicted {
-				evictedItems = append(evictedItems, keyAndValue{k, ov})
+			//Here we do not need to check if item exists because we know that it exists
+			delete(c.items, k)
+			if c.onEvicted != nil {
+				evictedItems = append(evictedItems, keyAndValue{k, v.Object})
 			}
 		}
 	}
 	c.mu.Unlock()
-	for _, v := range evictedItems {
-		c.onEvicted(v.key, v.value)
+	c.onEvicted(evictedItems[:])
+}
+
+func (c *cache) DeleteOrReplaceExpired(predicate func(value interface{}) bool, resetValue interface{}, d time.Duration) {
+	var evictedItems []keyAndValue
+	now := time.Now().UnixNano()
+	c.mu.Lock()
+	for k, v := range c.items {
+		if v.Expiration > 0 && now > v.Expiration {
+			if predicate(v) {
+				//Set to provided default value if old value satisfies condition
+				c.set(k, resetValue, d)
+			} else {
+				//Delete otherwise
+				delete(c.items, k)
+			}
+			//Always add as evicted item
+			if c.onEvicted != nil {
+				evictedItems = append(evictedItems, keyAndValue{key: k, value: v.Object})
+			}
+		}
 	}
+	c.mu.Unlock()
+	c.onEvicted(evictedItems[:])
 }
 
 // Sets an (optional) function that is called with the key and value when an
 // item is evicted from the cache. (Including when it is deleted manually, but
 // not when it is overwritten.) Set to nil to disable.
-func (c *cache) OnEvicted(f func(string, interface{})) {
+func (c *cache) OnEvicted(f func([]keyAndValue)) {
 	c.mu.Lock()
 	c.onEvicted = f
 	c.mu.Unlock()
