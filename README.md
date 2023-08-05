@@ -17,11 +17,8 @@ one) to recover from downtime quickly. (See the docs for `NewFrom()` for caveats
 
 + Removed check for item existence in DeleteExpired function (we know that item exists already)
 + OnEvicted function now accepts array of evicted key/value pairs
-+ Added possibility to reset expired item values to some provided default if item matches provided condition (see [DeleteOrReplaceExpired](https://github.com/CaptainDno/go-cache/blob/46f407853014144407b6c2ec7ccc76bf67958d93/cache.go#L968))
++ Added possibility to reset expired item values to some provided default if item matches provided condition (see [DeleteOrReplaceExpired](https://github.com/CaptainDno/go-cache/blob/368b52b19547979ddf876d1b32f6fd2cfe4e6098/cache.go#L968))
 
-### Installation
-
-`go get github.com/patrickmn/go-cache`
 
 ### Usage
 
